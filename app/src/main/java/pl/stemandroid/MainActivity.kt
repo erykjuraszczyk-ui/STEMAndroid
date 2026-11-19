@@ -8,7 +8,9 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,7 +36,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -89,11 +90,54 @@ private data class StemGame(
     val executablePath: String
 )
 
+private data class BatchScript(
+    val fileName: String,
+    val body: String
+)
+
 @Composable
 private fun StemHome() {
     val context = LocalContext.current
     var games by remember { mutableStateOf(GameStorage.load(context)) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var pendingScript by remember { mutableStateOf<BatchScript?>(null) }
+
+    val exportScriptLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri ->
+        val script = pendingScript
+        pendingScript = null
+
+        if (uri == null) {
+            Toast.makeText(context, "Anulowano zapis skryptu.", Toast.LENGTH_SHORT).show()
+        } else if (script == null) {
+            Toast.makeText(context, "Nie znaleziono danych skryptu.", Toast.LENGTH_SHORT).show()
+        } else {
+            val result = runCatching {
+                val output = context.contentResolver.openOutputStream(uri)
+                    ?: error("Nie można otworzyć pliku docelowego.")
+                output.bufferedWriter(Charsets.UTF_8).use { it.write(script.body) }
+            }
+            if (result.isSuccess) {
+                Toast.makeText(
+                    context,
+                    "Zapisano " + script.fileName + ". Uruchom ten plik wewnątrz kontenera Winlator.",
+                    Toast.LENGTH_LONG
+                ).show()
+            } else {
+                Toast.makeText(
+                    context,
+                    "Nie udało się zapisać skryptu: " + (result.exceptionOrNull()?.message ?: "błąd pliku"),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    fun exportScript(script: BatchScript) {
+        pendingScript = script
+        exportScriptLauncher.launch(script.fileName)
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -104,9 +148,7 @@ private fun StemHome() {
             contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 22.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            item {
-                HeaderBlock(gameCount = games.size)
-            }
+            item { HeaderBlock(gameCount = games.size) }
 
             item {
                 ModeCard(
@@ -141,7 +183,7 @@ private fun StemHome() {
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Lokalna lista gier i ścieżek EXE",
+                            text = "Gry, Steam App ID i skrypty instalacji/startu",
                             color = Color(0xFF9DAFBE),
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -155,9 +197,7 @@ private fun StemHome() {
             }
 
             if (games.isEmpty()) {
-                item {
-                    EmptyLibraryCard(onAdd = { showAddDialog = true })
-                }
+                item { EmptyLibraryCard(onAdd = { showAddDialog = true }) }
             } else {
                 items(games, key = { it.id }) { game ->
                     GameCard(
@@ -170,6 +210,8 @@ private fun StemHome() {
                                 RunnerActions.openSteamStore(context, game.steamAppId)
                             }
                         },
+                        onExportInstall = { exportScript(SteamBatchScripts.install(game.steamAppId)) },
+                        onExportLaunch = { exportScript(SteamBatchScripts.launch(game.steamAppId)) },
                         onDelete = {
                             games = games.filterNot { it.id == game.id }
                             GameStorage.save(context, games)
@@ -312,8 +354,12 @@ private fun GameCard(
     game: StemGame,
     onOpenRunner: () -> Unit,
     onOpenStore: () -> Unit,
+    onExportInstall: () -> Unit,
+    onExportLaunch: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val hasValidAppId = game.steamAppId.matches(Regex("[0-9]+"))
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF141E2B)),
@@ -353,11 +399,35 @@ private fun GameCard(
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onOpenRunner, modifier = Modifier.weight(1f)) {
-                    Text("Otwórz Winlator")
+                    Text("Winlator")
                 }
                 OutlinedButton(onClick = onOpenStore, modifier = Modifier.weight(1f)) {
                     Text("Steam Store")
                 }
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onExportInstall,
+                    enabled = hasValidAppId,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("BAT instalacji")
+                }
+                OutlinedButton(
+                    onClick = onExportLaunch,
+                    enabled = hasValidAppId,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("BAT uruchomienia")
+                }
+            }
+            if (!hasValidAppId) {
+                Text(
+                    "Podaj prawidłowy Steam App ID, aby utworzyć skrypty.",
+                    color = Color(0xFF9DAFBE),
+                    style = MaterialTheme.typography.labelSmall
+                )
             }
         }
     }
@@ -465,6 +535,28 @@ private object GameStorage {
             .edit()
             .putString(GAMES_KEY, array.toString())
             .apply()
+    }
+}
+
+private object SteamBatchScripts {
+    fun install(appId: String): BatchScript {
+        require(appId.matches(Regex("[0-9]+"))) { "Nieprawidłowy App ID." }
+        val body =
+            "@echo off\r\n" +
+            "echo STEMAndroid: install Steam App ID " + appId + "\r\n" +
+            "start \"\" \"steam://install/" + appId + "\"\r\n" +
+            "exit /b\r\n"
+        return BatchScript("STEMAndroid-Install-" + appId + ".bat", body)
+    }
+
+    fun launch(appId: String): BatchScript {
+        require(appId.matches(Regex("[0-9]+"))) { "Nieprawidłowy App ID." }
+        val body =
+            "@echo off\r\n" +
+            "echo STEMAndroid: launch Steam App ID " + appId + "\r\n" +
+            "start \"\" \"steam://run/" + appId + "\"\r\n" +
+            "exit /b\r\n"
+        return BatchScript("STEMAndroid-Launch-" + appId + ".bat", body)
     }
 }
 
