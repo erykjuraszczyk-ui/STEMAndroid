@@ -6,6 +6,8 @@
 - [x] Lokalna biblioteka: dodawanie i usuwanie pozycji.
 - [x] Zapis nazwy, Steam App ID i ścieżki EXE.
 - [x] Otwarcie strony Steam Store.
+- [x] Eksport skryptu BAT do żądania instalacji przez steam://install/APP_ID.
+- [x] Eksport skryptu BAT do uruchomienia przez steam://run/APP_ID.
 - [x] Otwarcie Winlatora i kopiowanie ścieżki EXE.
 - [x] Otwieranie Steam Link.
 - [x] Workflow budowania APK w GitHub Actions.
