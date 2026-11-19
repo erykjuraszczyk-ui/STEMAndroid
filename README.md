@@ -11,25 +11,32 @@ Fanowski launcher i menedżer biblioteki gier Steam na Androida 13+.
 
 STEMAndroid porządkuje bibliotekę gier Windows kupionych na Steam i zapewnia dwa sposoby grania:
 
-- **Lokalnie — Winlator:** gry Windows mogą działać na urządzeniu Android przez zewnętrzną warstwę zgodności Wine + Box86/Box64. STEMAndroid otwiera zainstalowany Winlator i kopiuje zapisaną ścieżkę EXE.
-- **Zdalnie — Steam Link:** obraz i dźwięk gry są przesyłane z komputera, na którym działa Steam. Gra wykonuje się na komputerze, a telefon służy jako ekran i kontroler.
+- **Lokalnie — Winlator:** gry Windows mogą działać na urządzeniu Android przez zewnętrzną warstwę zgodności Wine + Box86/Box64.
+- **Zdalnie — Steam Link:** gra wykonuje się na komputerze, a telefon odbiera obraz i dźwięk oraz wysyła sterowanie.
 
-## Ważne ograniczenie wersji 0.1.0
+## Funkcje wersji 0.1.0
 
-To jest działający szkielet aplikacji i menedżer biblioteki, a nie kompletna implementacja klienta Steam ani własny emulator Windows. W tej wersji:
+- lokalna biblioteka gier zapisywana na telefonie;
+- dodawanie nazwy gry, Steam App ID i ścieżki EXE w kontenerze Windows;
+- otwieranie karty gry w Steam Store;
+- eksport pliku BAT żądającego instalacji gry przez Steam URI;
+- eksport pliku BAT uruchamiającego już zainstalowaną grę przez Steam URI;
+- otwieranie Winlatora i kopiowanie ścieżki EXE do schowka;
+- otwieranie oficjalnego Steam Link;
+- automatyczne budowanie debug APK w GitHub Actions.
 
-- można dodawać gry, Steam App ID i ścieżkę EXE w kontenerze Windows;
-- dane biblioteki są zapisywane lokalnie na telefonie;
-- można otworzyć kartę gry w Steam;
-- można uruchomić Winlator i skopiować ścieżkę EXE do schowka;
-- można otworzyć oficjalny Steam Link.
+### Ważne ograniczenie
 
-**Automatyczne pobieranie depotów Steam i bezpośrednie uruchamianie EXE jednym kliknięciem nie są jeszcze zaimplementowane.** Nie ma stabilnego, zweryfikowanego publicznego API Winlator, na którym można bezpiecznie oprzeć takie wywołanie. Nie zapisujemy haseł Steam, kodów Steam Guard ani tokenów sesji.
+STEMAndroid nie jest własnym emulatorem Windows ani klientem Steam. Skrypty BAT trzeba uruchomić **wewnątrz kontenera Winlator**, w którym zainstalowano oficjalnego klienta Steam i zalogowano konto posiadające daną grę. Polecenie instalacji wywołuje protokół Steam — sam skrypt nie pobiera plików gry. Działanie handlera Steam URI zależy od poprawnej instalacji klienta w kontenerze.
+
+Bezpośrednie uruchamianie EXE jednym kliknięciem nie jest jeszcze dostępne: aplikacja otwiera Winlatora i kopiuje ścieżkę do schowka. Nie ma tu niezweryfikowanego, prywatnego API Winlatora.
+
+Nie zapisujemy haseł Steam, kodów Steam Guard ani tokenów sesji.
 
 ## Wymagania
 
 - Android 13 lub nowszy.
-- Urządzenie ARM64; GPU i sterowniki Vulkan zgodne z konkretną grą.
+- Urządzenie ARM64; zgodność GPU, Vulkan i gry zależy od konkretnego modelu.
 - Winlator zainstalowany osobno dla trybu lokalnego.
 - Komputer z uruchomionym Steam oraz Steam Link na telefonie dla trybu zdalnego.
 - JDK 17 i Android SDK 35 do kompilacji.
@@ -38,17 +45,19 @@ To jest działający szkielet aplikacji i menedżer biblioteki, a nie kompletna 
 
 Otwórz katalog repozytorium w Android Studio, poczekaj na synchronizację Gradle, a następnie wybierz **Build → Build APK(s)**.
 
-Konfiguracja projektu używa Android Gradle Plugin 8.7.3, Gradle 8.9, Kotlin 2.0.21 i SDK 35.
+Konfiguracja projektu używa Android Gradle Plugin 8.7.3, Gradle 8.9, Kotlin 2.0.21 i SDK 35. GitHub Actions buduje app-debug.apk po każdym pushu do gałęzi main i publikuje APK jako artefakt workflow.
 
-GitHub Actions buduje app-debug.apk po każdym pushu do gałęzi main. APK jest publikowany jako artefakt workflow.
+## Instalowanie gry lokalnie
 
-## Instalowanie gry lokalnie — obecny przepływ
+1. Zainstaluj Winlator z oficjalnego źródła i utwórz kontener Windows.
+2. Zainstaluj Steam wewnątrz kontenera Winlator, korzystając z oficjalnego instalatora.
+3. Zaloguj się wyłącznie w oficjalnym kliencie Steam uruchomionym w kontenerze.
+4. W STEMAndroid dodaj grę i jej Steam App ID.
+5. Wybierz **BAT instalacji** i zapisz plik np. w folderze Download dostępnym z kontenera.
+6. Otwórz zapisany plik BAT w Winlatorze. Steam powinien obsłużyć żądanie instalacji, jeżeli protokół Steam URI jest poprawnie zarejestrowany.
+7. Po pobraniu gry wypełnij ścieżkę jej EXE w kontenerze. Do uruchomienia przez Steam wygeneruj **BAT uruchomienia** i wykonaj go w kontenerze.
 
-1. Zainstaluj Winlator z jego oficjalnego źródła i utwórz kontener Windows.
-2. Zainstaluj Steam wewnątrz kontenera Winlator, korzystając z oficjalnego instalatora Steam.
-3. Zaloguj się wyłącznie w oficjalnym kliencie Steam uruchomionym w kontenerze i pobierz grę, którą posiadasz.
-4. W STEMAndroid dodaj grę, jej Steam App ID oraz ścieżkę EXE widoczną wewnątrz kontenera, np. C:\Program Files (x86)\Steam\steamapps\common\NazwaGry\game.exe.
-5. Wybierz **Otwórz Winlator**. STEMAndroid otworzy środowisko i skopiuje ścieżkę do schowka. W tej wersji uruchom plik z poziomu Winlatora.
+W razie problemów uruchom instalację lub grę bezpośrednio z biblioteki Steam wewnątrz Winlatora. Wymagane jest posiadanie gry na koncie i wystarczająca ilość miejsca.
 
 ## Licencje i niezależność
 
