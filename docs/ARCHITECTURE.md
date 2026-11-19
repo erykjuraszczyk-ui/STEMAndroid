@@ -2,10 +2,21 @@
 
 ## Warstwy
 
-- **UI (Jetpack Compose):** biblioteka, formularz dodawania gry, akcje lokalne i zdalne.
+- **UI (Jetpack Compose):** biblioteka, formularz dodawania gry, eksport skryptów oraz akcje lokalne i zdalne.
 - **GameStorage:** lokalny zapis JSON w prywatnych preferencjach aplikacji.
+- **SteamBatchScripts:** tworzenie skryptów BAT z żądaniami Steam URI.
 - **RunnerActions:** otwieranie zewnętrznych aplikacji i oficjalnych stron.
-- **Steam Store:** otwieranie publicznej karty produktu po numerycznym Steam App ID.
+
+## Instalacja przez Steam URI
+
+Dla poprawnego numerycznego App ID aplikacja generuje plik BAT z poleceniem:
+
+- instalacja: start "" "steam://install/APP_ID"
+- uruchomienie: start "" "steam://run/APP_ID"
+
+Plik należy uruchomić wewnątrz kontenera Windows, gdzie działa oficjalny klient Steam i zarejestrowany jest handler protokołu steam://. W przypadku błędów bezpiecznym fallbackiem jest instalacja/uruchomienie bezpośrednio z biblioteki Steam.
+
+Steamworks opisuje uruchamianie aplikacji przez steam://run/<AppId> w dokumentacji SteamAPI_RestartAppIfNecessary: https://partner.steamgames.com/doc/api/steam_api
 
 ## Tryb lokalny
 
@@ -14,7 +25,8 @@ Android nie uruchamia plików PE/Windows EXE natywnie. Wymagane jest środowisko
 W wersji 0.1.0 STEMAndroid:
 1. przechowuje ścieżkę pliku EXE w przestrzeni Windows kontenera;
 2. otwiera główną aktywność Winlatora, jeżeli pakiet com.winlator jest zainstalowany;
-3. kopiuje ścieżkę do schowka, aby użytkownik mógł uruchomić ją w kontenerze.
+3. kopiuje ścieżkę do schowka, aby użytkownik mógł uruchomić ją w kontenerze;
+4. tworzy opcjonalne pliki BAT uruchamiane ręcznie w kontenerze.
 
 Aplikacja nie zakłada nieudokumentowanego URI ani prywatnego API Winlatora. Bez potwierdzonego interfejsu nie wykonuje automatycznego startu procesu.
 
